@@ -1,1 +1,281 @@
-sdl
+# systemctl status firewalld
+Which will give you an output such as:
+firewalld.service - firewalld - dynamic firewall daemon
+Loaded: loaded (/usr/lib/systemd/system/firewalld.service; enabled)
+Active: active (running) since Wed 2015-01-14 14:32:53 IST; 5s ago
+Main PID: 11360 (firewalld)
+CGroup: /system.slice/firewalld.service
+11360 /usr/bin/python -Es /usr/sbin/firewalld --nofork –nopid
+
+# systemctl disable firewalld
+# systemctl stop firewalld
+
+4.	Then install the iptables-services package by entering the following command:
+# yum install iptables-services
+The iptables-services package contains the iptables service and the ip6tables service.
+To start the iptables or ip6tables services, run below command:
+# systemctl start iptables
+# systemctl enable iptables
+OR
+# systemctl start ip6tables
+# systemctl enable ip6tables
+
+Edit /etc/sysconfig/iptables
+# vim /etc/sysconfig/iptables
+Add the following rules:
+# sample configuration for iptables service
+# you can edit this manually or use system-config-firewall
+*filter
+:INPUT ACCEPT [0:0]
+:FORWARD ACCEPT [0:0]
+:OUTPUT ACCEPT [0:0]
+-A INPUT -m state --state RELATED,ESTABLISHED -j ACCEPT
+-A INPUT -p icmp -j ACCEPT
+-A INPUT -i lo -j ACCEPT
+# Balasai Office IPs
+-A INPUT -s 115.108.33.7 -j ACCEPT
+-A INPUT -s 115.108.42.134 -j ACCEPT
+-A INPUT -s 122.169.99.109 -j ACCEPT
+
+# Balasai Network Monitoring IP
+-A INPUT -s 203.199.134.8 -j ACCEPT
+
+# Balasai Network Monitoring (Int) IP
+-A INPUT -s 103.228.50.1 -j ACCEPT
+
+#Balasai VSNL IDC(Reserv for laptop)
+-A INPUT -s 203.199.134.2 -j ACCEPT
+
+# Data Center specific rules - enable only the correct ones.
+# Balasai Internal Network - Only for servers at Tata IDC - Pune
+# -A INPUT -s 192.168.1.0/24 -j ACCEPT
+# SoftLayer Internal Network & Balasai VPN - Only for servers at SL IDC - US
+# -A INPUT -s 10.0.0.0/8 -j ACCEPT
+# Balasai Internal Network - Only for servers at CtrlS IDC - Mumbai
+# -A INPUT -s 192.168.100.0/24 -j ACCEPT
+# Balasai Internal Network - Only for servers at TCL IDC - Pune
+# -A INPUT -s 192.168.20.0/24 -j ACCEPT
+# Balasai Internal Network - Only for servers at TCL IDC - Pune
+# -A INPUT -s 192.168.21.0/24 -j ACCEPT
+# Global
+# Service Specific rules - enable the following rules only if and when required.
+# Web Servers - HTTP & HTTPS
+# -A INPUT -p tcp --dport 80 -j ACCEPT
+# -A INPUT -p tcp --dport 443 -j ACCEPT
+# Mail Servers - SMTP & SMTPS
+# -A INPUT -p tcp --dport 25 -j ACCEPT
+# -A INPUT -p tcp --dport 465 -j ACCEPT
+# POP3 Servers - POP3 & POP3S
+# -A INPUT -p tcp --dport 110 -j ACCEPT
+# -A INPUT -p tcp --dport 995 -j ACCEPT
+# End of Service Specific Rules
+# -A INPUT -p tcp -m state --state NEW -m tcp --dport 22 -j ACCEPT
+-A INPUT -j REJECT --reject-with icmp-host-prohibited
+-A FORWARD -j REJECT --reject-with icmp-host-prohibited
+COMMIT
+# Completed
+
+5.	Give a Hostname to the server with following process:
+
+# hostnamectl set-hostname test.balasai.com
+# systemctl restart systemd-hostnamed
+# hostnamectl status
+
+With the last command you will be able to view the Hostname which has been set.
+NOTE: In the first command test.balasai.com is only given as an example. Give the actual Hostname of the server.
+
+
+6.	To have Date and Time stamp along with command history
+# cd /root
+# vi .bashrc
+Add the following line at the end of the file:
+export HISTTIMEFORMAT="%Y-%m-%d %H:%M:%S "
+
+7.	Disable all unwanted services. Disable following services for now:
+
+# systemctl stop postfix.service
+# systemctl disable postfix.service
+
+Run the command:
+# systemctl list-unit-files --type=service | grep enabled
+You should see the following output:
+
+auditd.service                              			enabled
+avahi-daemon.service                        		enabled
+crond.service                               			enabled
+dbus-org.freedesktop.Avahi.service          	enabled
+dbus-org.freedesktop.NetworkManager.service enabled
+dbus-org.freedesktop.nm-dispatcher.service  	enabled
+getty@.service                              			enabled
+iptables.service                            			enabled
+irqbalance.service                          		enabled
+kdump.service                               			enabled
+lvm2-monitor.service                        		enabled
+microcode.service                           		enabled
+NetworkManager-dispatcher.service           	enabled
+NetworkManager.service                      		enabled
+rsyslog.service                             			enabled
+sshd.service                                			enabled
+systemd-readahead-collect.service           	enabled
+systemd-readahead-drop.service              	enabled
+systemd-readahead-replay.service            	enabled
+tuned.service                               			enabled
+
+Further tweaking may be required depending on the hardware, and the use of the server.
+
+
+8.	Secure SSH and Access.
+
+(1)	 Add a new user bn_admin (User may get changed depending upon Customer’s Server)
+
+# useradd bn_admin
+# passwd bn_admin
+Give a strong password which contains alpha-numeric characters.
+
+(2)	 Edit SSH configuration file
+
+# vi /etc/ssh/sshd_config
+Make sure that below mentioned changes are enabled.
+
+•	Protocol 2
+•	PermitRootLogin  No
+•	StrictModes  yes
+•	AllowUsers bn_admin
+•	HostbasedAuthentication  no
+•	PermitEmptyPasswords  no
+•	X11Forwarding  no
+•	UsePrivilegeSeparation  sandbox
+•	AllowTcpForwarding  yes
+
+Reload the SSH service by using the command:
+# /etc/init.d/sshd reload
+
+** If it is a cpanel server, edit /etc/groups and add bn_admin in wheel group.
+** wheel : root,bn_admin
+
+
+(3)	 Confirm SSH hardening: Start a new putty session to the server while you are already logged on through existing shell.
+Confirm whether you are still able to login from root.  If yes then you SSH hardening is not proper. Recheck.
+You should be able to login with bn_admin as first user 
+Then su -   press Enter key and give root password.
+If you are successful then it's OK.
+You can log out of the first shell.
+
+(4)	 Change the root password and set a strong password which contains alpha-numeric characters.
+
+# passwd
+Type new password, 
+Re-type.
+
+(5)	 Update the system
+
+# yum update yum
+# yum update
+
+(6)	 Install Webmin
+
+
+All additional installations are done from /usr/local/src
+
+# cd /usr/local/src
+
+Package Dependencies:
+Ensure openssl and openssl-devel are installed.
+# rpm -q openssl
+# rpm -q openssl-devel
+If they are not installed, install them using:
+# yum install openssl openssl-devel
+
+Download latest Webmin RPM from below link:
+http://www.webmin.com/download.html
+
+# yum install wget
+# wget RPM Download Link
+
+As Webmin is developed in Perl, so install Perl before proceeding with Webmin installation.
+# yum install perl
+
+Now install Webmin from RPM.
+# rpm -Uvh webmin-<downloaded rpm>
+
+The rest of the install will be done automatically to the directory /usr/libexec/webmin, the administration Username set to root and the password to your current root password. You should now be able to login to Webmin at the URL http://<host>:10000/. Or if accessing it remotely, replace localhost with your system's IP address.
+
+Edit /etc/webmin/miniserv.conf
+
+The first line says: port=10000
+Change Webmin listening port to  following :
+BNPL Servers : 54554. (port=54554)
+Customer Servers : 54014 (port=54014)
+
+Look for the line: listen=10000
+Comment the line. #listen=10000
+
+Restart Webmin for these changes to take effect: systemctl restart webmin
+
+Login to the Webmin.
+Click on Webmin Configuration under Webmin tab.
+Click on Logging icon.
+
+Enable the below mentioned options by clicking on Yes which is parallel to each:
+Include Webmin logins and logouts in actions log?
+Log changes made to files by each action?
+Record all modified files before actions, for rollbacks?
+
+And the Save.
+
+(7)	 Minor important tweaks:
+
+I] Edit /etc/hosts
+
+# vi /etc/hosts
+
+Remove the existing lines and add the following:
+
+127.0.0.1               	localhost.localdomain   localhost
+Server's Public IP	Server's Hostname
+115.108.33.7                    Tata_DSL_FO
+115.108.42.134          	Tata_DSL_FO2
+122.169.99.109          	Airtel_DSL_FO2
+203.199.134.8           	xn015.balasai.com 	xn015
+203.199.134.5           	xn015.balasai.com 	xn015
+103.228.50.1		pnq01.balasai.com	pnq01
+
+Save the file.
+If it is a customer server, and if customer has given their static IPs accessing the server, we can add those IPs too.
+
+II] Correct the resolvers.
+
+# vi /etc/resolv.conf
+Check the resolvers to be used. The resolvers are nameservers as defined by the data center where the server is located.
+
+Suggested nameservers :
+
+For Softlayer servers: 
+nameserver 10.0.80.11
+nameserver 10.0.80.12
+nameserver 203.199.134.8
+
+
+For VSNL datacenter
+nameserver 203.197.12.42
+nameserver 202.54.10.2
+nameserver 203.199.134.8
+
+For CtrlS IDC:
+If we do not have nameservers there, please use as follows-
+nameserver 203.199.134.5
+nameserver 8.8.8.8
+nameserver 8.8.4.4
+
+For TCL IDC (Depends upon the Private IP range)
+nameserver 192.168.20.1
+nameserver 192.168.20.5
+nameserver 203.199.134.5
+
+For TCL IDC (Depends upon the Private IP range)
+nameserver 192.168.21.252
+nameserver 203.199.134.5
+nameserver 8.8.8.8
+
+Save the file after making changes.
+
